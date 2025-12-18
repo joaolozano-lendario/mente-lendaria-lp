@@ -187,6 +187,7 @@ export default function App() {
   const [fullname, setFullname] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [faturamento, setFaturamento] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const navigate = useNavigate()
@@ -213,6 +214,7 @@ export default function App() {
       formData.append('fullname', fullname)
       formData.append('email', email)
       formData.append('phone', phone)
+      formData.append('field[60]', faturamento)
 
       await fetch('https://academialendariaoficial.activehosted.com/proc.php?jsonp=true', {
         method: 'POST',
@@ -714,6 +716,19 @@ export default function App() {
                   required
                   className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors"
                 />
+                <select
+                  value={faturamento}
+                  onChange={(e) => setFaturamento(e.target.value)}
+                  required
+                  className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors appearance-none cursor-pointer"
+                >
+                  <option value="">Faixa de Faturamento Anual *</option>
+                  <option value="Ainda não faturamos">Ainda não faturamos</option>
+                  <option value="Até 100 mil/ano">Até 100 mil/ano</option>
+                  <option value="De 100 mil a 500 mil/ano">De 100 mil a 500 mil/ano</option>
+                  <option value="De 500 mil a 1 milhão/ano">De 500 mil a 1 milhão/ano</option>
+                  <option value="Mais de 1 milhão/ano">Mais de 1 milhão/ano</option>
+                </select>
                 <CTAButton disabled={isSubmitting} className="w-full">
                   {isSubmitting ? 'ENVIANDO...' : 'QUERO ASSISTIR AGORA'}
                 </CTAButton>
