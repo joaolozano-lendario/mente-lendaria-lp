@@ -264,25 +264,65 @@ export default function App() {
     params.append('phone', '+55' + phone)
     params.append('field[60]', faturamento)
 
-    // Use JSONP approach like AC official script
-    const script = document.createElement('script')
-    script.src = `https://academialendariaoficial.activehosted.com/proc.php?${params.toString()}&jsonp=true`
-    script.onerror = () => {
-      alert('Ocorreu um erro de conexão. Tente novamente.')
-      setIsSubmitting(false)
+    // Create sandboxed iframe to execute AC script
+    // This prevents AC's window.top.location redirect from affecting our page
+    const iframe = document.createElement('iframe')
+    iframe.style.display = 'none'
+    iframe.sandbox = 'allow-scripts'
+    document.body.appendChild(iframe)
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
+    if (iframeDoc) {
+      iframeDoc.open()
+      iframeDoc.write(`
+        <html><body><script>
+          // Forward callbacks to parent
+          window._show_thank_you = function(id, msg) {
+            parent.postMessage({type: 'ac_success', id: id, msg: msg}, '*');
+          };
+          window._show_error = function(id, msg) {
+            parent.postMessage({type: 'ac_error', id: id, msg: msg}, '*');
+          };
+        </script>
+        <script src="https://academialendariaoficial.activehosted.com/proc.php?${params.toString()}&jsonp=true"></script>
+        </body></html>
+      `)
+      iframeDoc.close()
     }
 
-    // Fallback: if AC doesn't call our callbacks within 3s, redirect anyway
+    // Listen for messages from iframe
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'ac_success') {
+        console.log('AC Success via iframe:', event.data)
+        window.removeEventListener('message', handleMessage)
+        document.body.removeChild(iframe)
+        if (!hasRedirected.current) {
+          hasRedirected.current = true
+          setIsSubmitted(true)
+          setIsSubmitting(false)
+          window.location.href = '/obrigado'
+        }
+      } else if (event.data?.type === 'ac_error') {
+        console.error('AC Error via iframe:', event.data)
+        window.removeEventListener('message', handleMessage)
+        document.body.removeChild(iframe)
+        alert('Ocorreu um erro: ' + event.data.msg)
+        setIsSubmitting(false)
+      }
+    }
+    window.addEventListener('message', handleMessage)
+
+    // Fallback: redirect after 3s regardless
     setTimeout(() => {
+      window.removeEventListener('message', handleMessage)
+      if (iframe.parentNode) document.body.removeChild(iframe)
       if (!hasRedirected.current) {
         hasRedirected.current = true
         setIsSubmitted(true)
         setIsSubmitting(false)
-        window.location.replace('/obrigado')
+        window.location.href = '/obrigado'
       }
     }, 3000)
-
-    document.head.appendChild(script)
   }
 
   const scrollToForm = () => {
