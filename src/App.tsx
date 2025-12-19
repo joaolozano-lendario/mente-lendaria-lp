@@ -262,46 +262,22 @@ export default function App() {
     params.append('phone', '+55' + phone)
     params.append('field[60]', faturamento)
 
-    // Intercept window.top.location.href redirect from AC
-    const topLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'top')
-
-    // Create a proxy to intercept the redirect
-    Object.defineProperty(window, 'top', {
-      get: () => ({
-        location: {
-          set href(url: string) {
-            // AC tried to redirect - we intercept and go to our page
-            console.log('AC redirect intercepted:', url)
-            setIsSubmitted(true)
-            setIsSubmitting(false)
-            navigate('/obrigado')
-          },
-          get href() {
-            return window.location.href
-          }
-        }
-      }),
-      configurable: true
-    })
-
     // Use JSONP approach like AC official script
     const script = document.createElement('script')
     script.src = `https://academialendariaoficial.activehosted.com/proc.php?${params.toString()}&jsonp=true`
     script.onerror = () => {
-      // Restore original
-      if (topLocationDescriptor) {
-        Object.defineProperty(window, 'top', topLocationDescriptor)
-      }
       alert('Ocorreu um erro de conexão. Tente novamente.')
       setIsSubmitting(false)
     }
 
-    // Cleanup after a delay (in case redirect doesn't happen)
+    // Fallback: if AC doesn't call our callbacks within 3s, redirect anyway
     setTimeout(() => {
-      if (topLocationDescriptor) {
-        Object.defineProperty(window, 'top', topLocationDescriptor)
+      if (isSubmitting) {
+        setIsSubmitted(true)
+        setIsSubmitting(false)
+        navigate('/obrigado')
       }
-    }, 5000)
+    }, 3000)
 
     document.head.appendChild(script)
   }
