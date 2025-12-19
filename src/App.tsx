@@ -234,26 +234,33 @@ export default function App() {
       'field[60]': faturamento
     })
 
-    // Use fetch with keepalive to ensure request completes even after navigation
     const url = 'https://academialendariaoficial.activehosted.com/proc.php?' + params.toString()
     
-    // navigator.sendBeacon doesn't support GET, so use fetch with keepalive
-    fetch(url, { 
-      method: 'GET',
-      mode: 'no-cors',
-      keepalive: true 
-    }).catch(() => {})
+    // DEBUG: Log the URL being sent
+    console.log('AC URL:', url)
 
-    // Also fire via Image as backup
-    const img = new Image()
-    img.src = url
+    // Use sendBeacon for guaranteed delivery (survives page navigation)
+    const formData = new FormData()
+    formData.append('u', '62')
+    formData.append('f', '62')
+    formData.append('s', '')
+    formData.append('c', '0')
+    formData.append('m', '0')
+    formData.append('act', 'sub')
+    formData.append('v', '2')
+    formData.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
+    formData.append('fullname', fullname)
+    formData.append('email', email)
+    formData.append('phone', '+55' + phone)
+    formData.append('field[60]', faturamento)
+    
+    const beaconSent = navigator.sendBeacon('https://academialendariaoficial.activehosted.com/proc.php', formData)
+    console.log('Beacon sent:', beaconSent)
 
-    // Redirect after small delay to let requests fire
-    setTimeout(() => {
-      setIsSubmitted(true)
-      setIsSubmitting(false)
-      window.location.href = '/obrigado'
-    }, 1500)
+    // Redirect immediately - sendBeacon guarantees delivery
+    setIsSubmitted(true)
+    setIsSubmitting(false)
+    window.location.href = '/obrigado'
   }
 
   const scrollToForm = () => {
