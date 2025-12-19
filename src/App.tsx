@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -201,20 +200,26 @@ export default function App() {
   const [faturamento, setFaturamento] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
-  const navigate = useNavigate()
 
   const { scrollY } = useScroll()
   const headerBg = useTransform(scrollY, [0, 100], ['rgba(255,255,255,0)', 'rgba(255,255,255,0.95)'])
   const headerBorder = useTransform(scrollY, [0, 100], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.05)'])
 
+  // Track if we already redirected to prevent AC from redirecting
+  const hasRedirected = useRef(false)
+
   // Setup ActiveCampaign callbacks on mount
   useEffect(() => {
-    // Success callback
+    // Success callback - AC calls this on successful submission
     window._show_thank_you = (id: string, message: string) => {
       console.log('AC Success:', id, message)
-      setIsSubmitted(true)
-      setIsSubmitting(false)
-      navigate('/obrigado')
+      if (!hasRedirected.current) {
+        hasRedirected.current = true
+        setIsSubmitted(true)
+        setIsSubmitting(false)
+        // Use replace to prevent back button issues
+        window.location.replace('/obrigado')
+      }
     }
 
     // Error callback
@@ -224,20 +229,17 @@ export default function App() {
       setIsSubmitting(false)
     }
 
-    // Intercept AC redirect (it tries to set window.top.location.href)
-    // We'll let it redirect to our thank you page instead
-
     return () => {
-      // Cleanup
       window._show_thank_you = () => {}
       window._show_error = () => {}
     }
-  }, [navigate])
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!fullname || !email || !phone || !faturamento) return
     setIsSubmitting(true)
+    hasRedirected.current = false
 
     // Fire Facebook Pixel Lead event
     if (typeof window.fbq === 'function') {
@@ -272,10 +274,11 @@ export default function App() {
 
     // Fallback: if AC doesn't call our callbacks within 3s, redirect anyway
     setTimeout(() => {
-      if (isSubmitting) {
+      if (!hasRedirected.current) {
+        hasRedirected.current = true
         setIsSubmitted(true)
         setIsSubmitting(false)
-        navigate('/obrigado')
+        window.location.replace('/obrigado')
       }
     }, 3000)
 
