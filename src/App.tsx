@@ -218,35 +218,31 @@ export default function App() {
       })
     }
 
-    // Build form data for AC
-    const formData = new FormData()
-    formData.append('u', '62')
-    formData.append('f', '62')
-    formData.append('s', '')
-    formData.append('c', '0')
-    formData.append('m', '0')
-    formData.append('act', 'sub')
-    formData.append('v', '2')
-    formData.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
-    formData.append('fullname', fullname)
-    formData.append('email', email)
-    formData.append('phone', '+55' + phone)
-    formData.append('field[60]', faturamento)
+    // Build query string for AC
+    const params = new URLSearchParams()
+    params.append('u', '62')
+    params.append('f', '62')
+    params.append('s', '')
+    params.append('c', '0')
+    params.append('m', '0')
+    params.append('act', 'sub')
+    params.append('v', '2')
+    params.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
+    params.append('fullname', fullname)
+    params.append('email', email)
+    params.append('phone', '+55' + phone)
+    params.append('field[60]', faturamento)
 
-    // Send to AC via fetch (fire and forget - no-cors means we can't read response)
-    // AC will process and send the email regardless
-    fetch('https://academialendariaoficial.activehosted.com/proc.php', {
-      method: 'POST',
-      body: formData,
-      mode: 'no-cors'
-    }).catch(() => {
-      // Ignore errors - no-cors requests often "fail" but still work
-    })
+    // Use image request to send data (works cross-origin, no CORS issues)
+    const img = new Image()
+    img.src = 'https://academialendariaoficial.activehosted.com/proc.php?' + params.toString()
 
-    // Redirect to our thank you page immediately
-    setIsSubmitted(true)
-    setIsSubmitting(false)
-    window.location.href = '/obrigado'
+    // Give it a moment to fire, then redirect
+    setTimeout(() => {
+      setIsSubmitted(true)
+      setIsSubmitting(false)
+      window.location.href = '/obrigado'
+    }, 500)
   }
 
   const scrollToForm = () => {
