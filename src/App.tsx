@@ -234,23 +234,26 @@ export default function App() {
       'field[60]': faturamento
     })
 
-    // Use Image to send GET request (cross-origin safe)
-    const img = new Image()
-    img.src = 'https://academialendariaoficial.activehosted.com/proc.php?' + params.toString()
+    // Use fetch with keepalive to ensure request completes even after navigation
+    const url = 'https://academialendariaoficial.activehosted.com/proc.php?' + params.toString()
     
-    // Wait for request to complete, then redirect
-    img.onload = img.onerror = () => {
-      setIsSubmitted(true)
-      setIsSubmitting(false)
-      window.location.href = '/obrigado'
-    }
+    // navigator.sendBeacon doesn't support GET, so use fetch with keepalive
+    fetch(url, { 
+      method: 'GET',
+      mode: 'no-cors',
+      keepalive: true 
+    }).catch(() => {})
 
-    // Fallback redirect after 2s if image events don't fire
+    // Also fire via Image as backup
+    const img = new Image()
+    img.src = url
+
+    // Redirect after small delay to let requests fire
     setTimeout(() => {
       setIsSubmitted(true)
       setIsSubmitting(false)
       window.location.href = '/obrigado'
-    }, 2000)
+    }, 1500)
   }
 
   const scrollToForm = () => {
