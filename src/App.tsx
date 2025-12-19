@@ -218,31 +218,54 @@ export default function App() {
       })
     }
 
-    // Build query string for AC
-    const params = new URLSearchParams()
-    params.append('u', '62')
-    params.append('f', '62')
-    params.append('s', '')
-    params.append('c', '0')
-    params.append('m', '0')
-    params.append('act', 'sub')
-    params.append('v', '2')
-    params.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
-    params.append('fullname', fullname)
-    params.append('email', email)
-    params.append('phone', '+55' + phone)
-    params.append('field[60]', faturamento)
+    // Create hidden iframe to receive form submission
+    const iframeName = 'ac_iframe_' + Date.now()
+    const iframe = document.createElement('iframe')
+    iframe.name = iframeName
+    iframe.style.display = 'none'
+    document.body.appendChild(iframe)
 
-    // Use image request to send data (works cross-origin, no CORS issues)
-    const img = new Image()
-    img.src = 'https://academialendariaoficial.activehosted.com/proc.php?' + params.toString()
+    // Create form that submits to AC via the hidden iframe
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = 'https://academialendariaoficial.activehosted.com/proc.php'
+    form.target = iframeName // Submit to hidden iframe
 
-    // Give it a moment to fire, then redirect
+    // Add all fields
+    const fields = {
+      u: '62',
+      f: '62',
+      s: '',
+      c: '0',
+      m: '0',
+      act: 'sub',
+      v: '2',
+      or: '04db4eed-cefa-4708-87d2-eaeec5189956',
+      fullname: fullname,
+      email: email,
+      phone: '+55' + phone,
+      'field[60]': faturamento
+    }
+
+    Object.entries(fields).forEach(([key, value]) => {
+      const input = document.createElement('input')
+      input.type = 'hidden'
+      input.name = key
+      input.value = value
+      form.appendChild(input)
+    })
+
+    document.body.appendChild(form)
+    form.submit()
+
+    // Clean up and redirect after a moment
     setTimeout(() => {
+      document.body.removeChild(form)
+      document.body.removeChild(iframe)
       setIsSubmitted(true)
       setIsSubmitting(false)
       window.location.href = '/obrigado'
-    }, 500)
+    }, 1000)
   }
 
   const scrollToForm = () => {
