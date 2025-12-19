@@ -218,21 +218,8 @@ export default function App() {
       })
     }
 
-    // Create hidden iframe to receive form submission
-    const iframeName = 'ac_iframe_' + Date.now()
-    const iframe = document.createElement('iframe')
-    iframe.name = iframeName
-    iframe.style.display = 'none'
-    document.body.appendChild(iframe)
-
-    // Create form that submits to AC via the hidden iframe
-    const form = document.createElement('form')
-    form.method = 'POST'
-    form.action = 'https://academialendariaoficial.activehosted.com/proc.php'
-    form.target = iframeName // Submit to hidden iframe
-
-    // Add all fields
-    const fields = {
+    // Build query string for AC (GET works - confirmed via curl test)
+    const params = new URLSearchParams({
       u: '62',
       f: '62',
       s: '',
@@ -245,27 +232,25 @@ export default function App() {
       email: email,
       phone: '+55' + phone,
       'field[60]': faturamento
-    }
-
-    Object.entries(fields).forEach(([key, value]) => {
-      const input = document.createElement('input')
-      input.type = 'hidden'
-      input.name = key
-      input.value = value
-      form.appendChild(input)
     })
 
-    document.body.appendChild(form)
-    form.submit()
-
-    // Clean up and redirect after a moment
-    setTimeout(() => {
-      document.body.removeChild(form)
-      document.body.removeChild(iframe)
+    // Use Image to send GET request (cross-origin safe)
+    const img = new Image()
+    img.src = 'https://academialendariaoficial.activehosted.com/proc.php?' + params.toString()
+    
+    // Wait for request to complete, then redirect
+    img.onload = img.onerror = () => {
       setIsSubmitted(true)
       setIsSubmitting(false)
       window.location.href = '/obrigado'
-    }, 1000)
+    }
+
+    // Fallback redirect after 2s if image events don't fire
+    setTimeout(() => {
+      setIsSubmitted(true)
+      setIsSubmitting(false)
+      window.location.href = '/obrigado'
+    }, 2000)
   }
 
   const scrollToForm = () => {
