@@ -1,4 +1,12 @@
+import { useEffect } from 'react'
 import { motion } from 'framer-motion'
+
+// Facebook Pixel type
+declare global {
+  interface Window {
+    fbq: (action: string, event: string, params?: Record<string, unknown>) => void
+  }
+}
 
 // Logo Diamante
 function DiamondLogo({ className = "w-8 h-8" }: { className?: string }) {
@@ -60,8 +68,17 @@ function CTAButton({
 }
 
 export default function ThankYou() {
-  const courseUrl = "https://curseduca.com/curso-mente-empresaria-lendaria" // Substituir pelo link real
   const instagramUrl = "https://www.instagram.com/oalanicolas/"
+
+  // Fire Facebook Pixel CompleteRegistration event on page load
+  useEffect(() => {
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'CompleteRegistration', {
+        content_name: 'Mente Empresaria Lendaria',
+        status: true
+      })
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-white">
@@ -115,40 +132,23 @@ export default function ThankYou() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Como acessar o curso:</h2>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              {/* Email */}
-              <div className="bg-white p-6 rounded-2xl border border-gray-200">
-                <div className="w-12 h-12 bg-[#242044] rounded-xl flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Verifique seu email</h3>
-                <p className="text-gray-600 text-sm">
-                  Você vai receber um email da Academia Lendária com seu acesso nos próximos minutos.
-                </p>
-                <p className="text-gray-400 text-xs mt-2 italic">
-                  (Não chegou? Confira a caixa de spam ou promoções.)
-                </p>
+            <div className="bg-[#242044] p-8 md:p-10 rounded-2xl text-white text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
               </div>
-
-              {/* Acesso Direto */}
-              <div className="bg-[#242044] p-6 rounded-2xl text-white">
-                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Ou acesse agora mesmo</h3>
-                <p className="text-white/80 text-sm mb-4">
-                  Se você é do tipo que não gosta de esperar (bom sinal), clique no botão abaixo:
+              <h2 className="text-2xl font-bold mb-4">Verifique seu email agora</h2>
+              <p className="text-white/80 mb-6">
+                Você vai receber um email da <strong className="text-white">Academia Lendária</strong> com o link de acesso ao curso nos próximos minutos.
+              </p>
+              <div className="bg-white/10 rounded-xl p-4 text-sm text-white/70">
+                <p className="mb-2">
+                  <strong className="text-white">Não encontrou?</strong>
                 </p>
-                <CTAButton href={courseUrl} className="w-full text-sm">
-                  ACESSAR O CURSO AGORA
-                  <span>→</span>
-                </CTAButton>
+                <p>
+                  Confira sua caixa de <span className="text-[#30D158] font-medium">spam</span> ou <span className="text-[#30D158] font-medium">promoções</span>.
+                </p>
               </div>
             </div>
           </motion.div>
@@ -164,7 +164,7 @@ export default function ThankYou() {
             transition={{ duration: 0.5, delay: 0.3 }}
           >
             <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 text-center">
-              Mas antes de assistir, uma pergunta:
+              Enquanto espera o email, uma pergunta:
             </h2>
 
             <div className="text-center mb-8">
@@ -243,7 +243,7 @@ export default function ThankYou() {
         </div>
       </section>
 
-      {/* Seção 5: CTA Principal */}
+      {/* Seção 5: Lembrete Email */}
       <section className="py-16 px-6">
         <div className="max-w-xl mx-auto text-center">
           <motion.div
@@ -251,13 +251,18 @@ export default function ThankYou() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
           >
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Seu acesso está esperando:
+            <div className="inline-flex items-center gap-2 bg-[#30D158]/10 text-[#22a043] px-4 py-2 rounded-full text-sm font-medium mb-6">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Acesso enviado para seu email
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
+              Vá agora para sua caixa de entrada
             </h2>
-            <CTAButton href={courseUrl} className="text-lg px-12 py-5">
-              COMEÇAR O CURSO AGORA
-              <span className="text-xl">→</span>
-            </CTAButton>
+            <p className="text-gray-600">
+              O link de acesso está esperando por você.
+            </p>
           </motion.div>
         </div>
       </section>

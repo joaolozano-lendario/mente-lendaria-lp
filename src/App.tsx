@@ -45,6 +45,17 @@ function InfinitySymbol({ className = "w-20", fill = "currentColor" }: { classNa
 // HOOKS
 // ════════════════════════════════════════════════════════════════════════════
 
+// ActiveCampaign callback functions (must be on window for JSONP)
+// Facebook Pixel type
+declare global {
+  interface Window {
+    _show_thank_you: (id: string, message: string, trackcmp_url?: string, email?: string) => void
+    _show_error: (id: string, message: string, html?: string) => void
+    _acFormCallback: (() => void) | null
+    fbq: (action: string, event: string, params?: Record<string, unknown>) => void
+  }
+}
+
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null)
   const [isInView, setIsInView] = useState(false)
@@ -196,41 +207,103 @@ export default function App() {
   const headerBg = useTransform(scrollY, [0, 100], ['rgba(255,255,255,0)', 'rgba(255,255,255,0.95)'])
   const headerBorder = useTransform(scrollY, [0, 100], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.05)'])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!fullname || !email || !phone) return
-    setIsSubmitting(true)
-
-    try {
-      const formData = new FormData()
-      formData.append('u', '62')
-      formData.append('f', '62')
-      formData.append('s', '')
-      formData.append('c', '0')
-      formData.append('m', '0')
-      formData.append('act', 'sub')
-      formData.append('v', '2')
-      formData.append('or', '344e1679-415b-4b66-abf0-248e18a28911')
-      formData.append('fullname', fullname)
-      formData.append('email', email)
-      formData.append('phone', phone)
-      formData.append('field[60]', faturamento)
-
-      await fetch('https://academialendariaoficial.activehosted.com/proc.php?jsonp=true', {
-        method: 'POST',
-        headers: { 'Accept': 'application/json' },
-        body: formData,
-        mode: 'no-cors'
-      })
-
+  // Setup ActiveCampaign callbacks on mount
+  useEffect(() => {
+    // Success callback
+    window._show_thank_you = (id: string, message: string) => {
+      console.log('AC Success:', id, message)
       setIsSubmitted(true)
+      setIsSubmitting(false)
       navigate('/obrigado')
-    } catch (error) {
-      console.error('Erro:', error)
-      alert('Ocorreu um erro. Tente novamente.')
-    } finally {
+    }
+
+    // Error callback
+    window._show_error = (id: string, message: string) => {
+      console.error('AC Error:', id, message)
+      alert('Ocorreu um erro: ' + message)
       setIsSubmitting(false)
     }
+
+    // Intercept AC redirect (it tries to set window.top.location.href)
+    // We'll let it redirect to our thank you page instead
+
+    return () => {
+      // Cleanup
+      window._show_thank_you = () => {}
+      window._show_error = () => {}
+    }
+  }, [navigate])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!fullname || !email || !phone || !faturamento) return
+    setIsSubmitting(true)
+
+    // Fire Facebook Pixel Lead event
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'Lead', {
+        content_name: 'Mente Empresaria Lendaria',
+        content_category: 'Free Course'
+      })
+    }
+
+    // Build query string like ActiveCampaign script does
+    const params = new URLSearchParams()
+    params.append('u', '62')
+    params.append('f', '62')
+    params.append('s', '')
+    params.append('c', '0')
+    params.append('m', '0')
+    params.append('act', 'sub')
+    params.append('v', '2')
+    params.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
+    params.append('fullname', fullname)
+    params.append('email', email)
+    params.append('phone', '+55' + phone)
+    params.append('field[60]', faturamento)
+
+    // Intercept window.top.location.href redirect from AC
+    const topLocationDescriptor = Object.getOwnPropertyDescriptor(window, 'top')
+
+    // Create a proxy to intercept the redirect
+    Object.defineProperty(window, 'top', {
+      get: () => ({
+        location: {
+          set href(url: string) {
+            // AC tried to redirect - we intercept and go to our page
+            console.log('AC redirect intercepted:', url)
+            setIsSubmitted(true)
+            setIsSubmitting(false)
+            navigate('/obrigado')
+          },
+          get href() {
+            return window.location.href
+          }
+        }
+      }),
+      configurable: true
+    })
+
+    // Use JSONP approach like AC official script
+    const script = document.createElement('script')
+    script.src = `https://academialendariaoficial.activehosted.com/proc.php?${params.toString()}&jsonp=true`
+    script.onerror = () => {
+      // Restore original
+      if (topLocationDescriptor) {
+        Object.defineProperty(window, 'top', topLocationDescriptor)
+      }
+      alert('Ocorreu um erro de conexão. Tente novamente.')
+      setIsSubmitting(false)
+    }
+
+    // Cleanup after a delay (in case redirect doesn't happen)
+    setTimeout(() => {
+      if (topLocationDescriptor) {
+        Object.defineProperty(window, 'top', topLocationDescriptor)
+      }
+    }, 5000)
+
+    document.head.appendChild(script)
   }
 
   const scrollToForm = () => {
@@ -692,52 +765,118 @@ export default function App() {
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-[0.2em] mb-4">
                   Acesse Agora o Curso Gratuito
                 </p>
-                <input
-                  type="text"
-                  placeholder="Seu nome completo"
-                  value={fullname}
-                  onChange={(e) => setFullname(e.target.value)}
-                  required
-                  className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors"
-                />
-                <input
-                  type="email"
-                  placeholder="Seu melhor email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors"
-                />
-                <input
-                  type="tel"
-                  placeholder="Seu WhatsApp (com DDD)"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  required
-                  className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors"
-                />
-                <select
-                  value={faturamento}
-                  onChange={(e) => setFaturamento(e.target.value)}
-                  required
-                  className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors appearance-none cursor-pointer"
+
+                {/* Step 1: Nome */}
+                <motion.div
+                  initial={{ opacity: 1, height: 'auto' }}
+                  animate={{ opacity: 1, height: 'auto' }}
                 >
-                  <option value="">Faixa de Faturamento Anual *</option>
-                  <option value="Ainda não faturamos">Ainda não faturamos</option>
-                  <option value="Até 100 mil/ano">Até 100 mil/ano</option>
-                  <option value="De 100 mil a 500 mil/ano">De 100 mil a 500 mil/ano</option>
-                  <option value="De 500 mil a 1 milhão/ano">De 500 mil a 1 milhão/ano</option>
-                  <option value="Mais de 1 milhão/ano">Mais de 1 milhão/ano</option>
-                </select>
-                <CTAButton disabled={isSubmitting} className="w-full">
-                  {isSubmitting ? 'ENVIANDO...' : 'QUERO ASSISTIR AGORA'}
-                </CTAButton>
-                <p className="text-sm text-gray-500 flex items-center justify-center gap-2">
-                  <svg className="w-4 h-4 text-[#30D158]" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                  </svg>
-                  Acesso imediato. Sem spam.
-                </p>
+                  <input
+                    type="text"
+                    placeholder="Seu nome completo"
+                    value={fullname}
+                    onChange={(e) => setFullname(e.target.value)}
+                    required
+                    className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors"
+                  />
+                </motion.div>
+
+                {/* Step 2: Email - aparece após nome */}
+                <AnimatePresence>
+                  {fullname.length >= 2 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <input
+                        type="email"
+                        placeholder="Seu melhor email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Step 3: Telefone - aparece após email válido */}
+                <AnimatePresence>
+                  {email.includes('@') && email.includes('.') && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg font-medium">+55</span>
+                        <input
+                          type="tel"
+                          placeholder="11 99999-9999"
+                          value={phone}
+                          onChange={(e) => {
+                            // Only allow numbers
+                            const cleaned = e.target.value.replace(/\D/g, '')
+                            setPhone(cleaned)
+                          }}
+                          required
+                          className="w-full pl-14 pr-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors"
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Step 4: Faturamento - aparece após telefone */}
+                <AnimatePresence>
+                  {phone.length >= 10 && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <select
+                        value={faturamento}
+                        onChange={(e) => setFaturamento(e.target.value)}
+                        required
+                        className="w-full px-6 py-4 text-center text-lg border-2 border-gray-200 rounded-xl bg-white focus:outline-none focus:border-[#30D158] transition-colors appearance-none cursor-pointer"
+                      >
+                        <option value="">Faixa de Faturamento Anual *</option>
+                        <option value="Ainda não faturamos">Ainda não faturamos</option>
+                        <option value="Até 100 mil/ano">Até 100 mil/ano</option>
+                        <option value="De 100 mil a 500 mil/ano">De 100 mil a 500 mil/ano</option>
+                        <option value="De 500 mil a 1 milhão/ano">De 500 mil a 1 milhão/ano</option>
+                        <option value="Mais de 1 milhão/ano">Mais de 1 milhão/ano</option>
+                      </select>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* CTA - aparece após selecionar faturamento */}
+                <AnimatePresence>
+                  {faturamento && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <CTAButton disabled={isSubmitting} className="w-full">
+                        {isSubmitting ? 'ENVIANDO...' : 'QUERO ASSISTIR AGORA'}
+                      </CTAButton>
+                      <p className="text-sm text-gray-500 flex items-center justify-center gap-2 mt-4">
+                        <svg className="w-4 h-4 text-[#30D158]" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                        Acesso imediato. Sem spam.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.form>
             ) : (
               <motion.div
