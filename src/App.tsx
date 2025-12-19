@@ -205,41 +205,10 @@ export default function App() {
   const headerBg = useTransform(scrollY, [0, 100], ['rgba(255,255,255,0)', 'rgba(255,255,255,0.95)'])
   const headerBorder = useTransform(scrollY, [0, 100], ['rgba(0,0,0,0)', 'rgba(0,0,0,0.05)'])
 
-  // Track if we already redirected to prevent AC from redirecting
-  const hasRedirected = useRef(false)
-
-  // Setup ActiveCampaign callbacks on mount
-  useEffect(() => {
-    // Success callback - AC calls this on successful submission
-    window._show_thank_you = (id: string, message: string) => {
-      console.log('AC Success:', id, message)
-      if (!hasRedirected.current) {
-        hasRedirected.current = true
-        setIsSubmitted(true)
-        setIsSubmitting(false)
-        // Use replace to prevent back button issues
-        window.location.replace('/obrigado')
-      }
-    }
-
-    // Error callback
-    window._show_error = (id: string, message: string) => {
-      console.error('AC Error:', id, message)
-      alert('Ocorreu um erro: ' + message)
-      setIsSubmitting(false)
-    }
-
-    return () => {
-      window._show_thank_you = () => {}
-      window._show_error = () => {}
-    }
-  }, [])
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!fullname || !email || !phone || !faturamento) return
     setIsSubmitting(true)
-    hasRedirected.current = false
 
     // Fire Facebook Pixel Lead event
     if (typeof window.fbq === 'function') {
@@ -249,80 +218,35 @@ export default function App() {
       })
     }
 
-    // Build query string like ActiveCampaign script does
-    const params = new URLSearchParams()
-    params.append('u', '62')
-    params.append('f', '62')
-    params.append('s', '')
-    params.append('c', '0')
-    params.append('m', '0')
-    params.append('act', 'sub')
-    params.append('v', '2')
-    params.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
-    params.append('fullname', fullname)
-    params.append('email', email)
-    params.append('phone', '+55' + phone)
-    params.append('field[60]', faturamento)
+    // Build form data for AC
+    const formData = new FormData()
+    formData.append('u', '62')
+    formData.append('f', '62')
+    formData.append('s', '')
+    formData.append('c', '0')
+    formData.append('m', '0')
+    formData.append('act', 'sub')
+    formData.append('v', '2')
+    formData.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
+    formData.append('fullname', fullname)
+    formData.append('email', email)
+    formData.append('phone', '+55' + phone)
+    formData.append('field[60]', faturamento)
 
-    // Create sandboxed iframe to execute AC script
-    // This prevents AC's window.top.location redirect from affecting our page
-    const iframe = document.createElement('iframe')
-    iframe.style.display = 'none'
-    iframe.sandbox = 'allow-scripts'
-    document.body.appendChild(iframe)
+    // Send to AC via fetch (fire and forget - no-cors means we can't read response)
+    // AC will process and send the email regardless
+    fetch('https://academialendariaoficial.activehosted.com/proc.php', {
+      method: 'POST',
+      body: formData,
+      mode: 'no-cors'
+    }).catch(() => {
+      // Ignore errors - no-cors requests often "fail" but still work
+    })
 
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document
-    if (iframeDoc) {
-      iframeDoc.open()
-      iframeDoc.write(`
-        <html><body><script>
-          // Forward callbacks to parent
-          window._show_thank_you = function(id, msg) {
-            parent.postMessage({type: 'ac_success', id: id, msg: msg}, '*');
-          };
-          window._show_error = function(id, msg) {
-            parent.postMessage({type: 'ac_error', id: id, msg: msg}, '*');
-          };
-        </script>
-        <script src="https://academialendariaoficial.activehosted.com/proc.php?${params.toString()}&jsonp=true"></script>
-        </body></html>
-      `)
-      iframeDoc.close()
-    }
-
-    // Listen for messages from iframe
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'ac_success') {
-        console.log('AC Success via iframe:', event.data)
-        window.removeEventListener('message', handleMessage)
-        document.body.removeChild(iframe)
-        if (!hasRedirected.current) {
-          hasRedirected.current = true
-          setIsSubmitted(true)
-          setIsSubmitting(false)
-          window.location.href = '/obrigado'
-        }
-      } else if (event.data?.type === 'ac_error') {
-        console.error('AC Error via iframe:', event.data)
-        window.removeEventListener('message', handleMessage)
-        document.body.removeChild(iframe)
-        alert('Ocorreu um erro: ' + event.data.msg)
-        setIsSubmitting(false)
-      }
-    }
-    window.addEventListener('message', handleMessage)
-
-    // Fallback: redirect after 3s regardless
-    setTimeout(() => {
-      window.removeEventListener('message', handleMessage)
-      if (iframe.parentNode) document.body.removeChild(iframe)
-      if (!hasRedirected.current) {
-        hasRedirected.current = true
-        setIsSubmitted(true)
-        setIsSubmitting(false)
-        window.location.href = '/obrigado'
-      }
-    }, 3000)
+    // Redirect to our thank you page immediately
+    setIsSubmitted(true)
+    setIsSubmitting(false)
+    window.location.href = '/obrigado'
   }
 
   const scrollToForm = () => {
