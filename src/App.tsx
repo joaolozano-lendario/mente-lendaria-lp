@@ -218,8 +218,21 @@ export default function App() {
       })
     }
 
-    // Build query string for AC (GET works - confirmed via curl test)
-    const params = new URLSearchParams({
+    // Create hidden iframe for form submission
+    const iframeName = 'ac_submit_' + Date.now()
+    const iframe = document.createElement('iframe')
+    iframe.name = iframeName
+    iframe.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;'
+    document.body.appendChild(iframe)
+
+    // Create and submit form to hidden iframe
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = 'https://academialendariaoficial.activehosted.com/proc.php'
+    form.target = iframeName
+    form.style.display = 'none'
+
+    const fields: Record<string, string> = {
       u: '62',
       f: '62',
       s: '',
@@ -232,35 +245,26 @@ export default function App() {
       email: email,
       phone: '+55' + phone,
       'field[60]': faturamento
+    }
+
+    Object.entries(fields).forEach(([key, value]) => {
+      const input = document.createElement('input')
+      input.type = 'hidden'
+      input.name = key
+      input.value = value
+      form.appendChild(input)
     })
 
-    const url = 'https://academialendariaoficial.activehosted.com/proc.php?' + params.toString()
-    
-    // DEBUG: Log the URL being sent
-    console.log('AC URL:', url)
+    document.body.appendChild(form)
+    console.log('Submitting to AC:', fields.email)
+    form.submit()
 
-    // Use sendBeacon for guaranteed delivery (survives page navigation)
-    const formData = new FormData()
-    formData.append('u', '62')
-    formData.append('f', '62')
-    formData.append('s', '')
-    formData.append('c', '0')
-    formData.append('m', '0')
-    formData.append('act', 'sub')
-    formData.append('v', '2')
-    formData.append('or', '04db4eed-cefa-4708-87d2-eaeec5189956')
-    formData.append('fullname', fullname)
-    formData.append('email', email)
-    formData.append('phone', '+55' + phone)
-    formData.append('field[60]', faturamento)
-    
-    const beaconSent = navigator.sendBeacon('https://academialendariaoficial.activehosted.com/proc.php', formData)
-    console.log('Beacon sent:', beaconSent)
-
-    // Redirect immediately - sendBeacon guarantees delivery
-    setIsSubmitted(true)
-    setIsSubmitting(false)
-    window.location.href = '/obrigado'
+    // Wait for submission, then redirect
+    setTimeout(() => {
+      setIsSubmitted(true)
+      setIsSubmitting(false)
+      window.location.href = '/obrigado'
+    }, 1500)
   }
 
   const scrollToForm = () => {
